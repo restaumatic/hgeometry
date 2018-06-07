@@ -26,7 +26,7 @@ module Data.Geometry.Ipe.Reader( -- * Reading ipe Files
                                , Coordinate(..)
                                ) where
 
-import           Control.Applicative((<|>))
+import           Control.Applicative ((<|>))
 import           Control.Lens hiding (Const, rmap)
 import qualified Data.ByteString as B
 import           Data.Colour.SRGB (RGB(..))
@@ -45,6 +45,7 @@ import qualified Data.List as L
 import qualified Data.List.NonEmpty as NE
 import           Data.Maybe (fromMaybe, mapMaybe)
 import           Data.Proxy
+import           Data.Semigroup
 import qualified Data.Seq2 as S2
 import           Data.Singletons
 import           Data.Text (Text)

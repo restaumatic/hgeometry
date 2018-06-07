@@ -490,7 +490,6 @@ test-suite hspec
                     , FlexibleInstances
                     , FlexibleContexts
                     , MultiParamTypeClasses
-                    , OverloadedStrings
 
 test-suite bapc_examples
   type:          exitcode-stdio-1.0
@@ -577,4 +576,3 @@ benchmark benchmarks
                     , FlexibleInstances
                     , FlexibleContexts
                     , MultiParamTypeClasses
-                    , OverloadedStrings
