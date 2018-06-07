@@ -3,13 +3,14 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Data.Geometry.Vector.VectorFamily where
 
-import Data.Traversable(foldMapDefault,fmapDefault)
+import           Control.DeepSeq
 import           Control.Lens hiding (element)
+import           Data.Aeson (ToJSON(..),FromJSON(..))
 import qualified Data.Foldable as F
 import qualified Data.Geometry.Vector.VectorFixed as FV
 import           Data.Proxy
+import           Data.Traversable (foldMapDefault,fmapDefault)
 import qualified Data.Vector.Fixed as V
-import           Data.Vector.Fixed.Cont (PeanoNum(..), Peano)
 import           GHC.TypeLits
 import           Linear.Affine (Affine(..))
 import           Linear.Metric
@@ -19,24 +20,20 @@ import qualified Linear.V4 as L4
 import           Linear.Vector
 
 --------------------------------------------------------------------------------
+-- * d dimensional Vectors
 
--- type family VectorF (d :: Peano) where
---   VectorF 0        = Const ()
---   VectorF 1        = Identity
---   VectorF 2        = L2.V2
---   VectorF 3        = L3.V3
---   VectorF 4        = L4.V4
---   VectorF d        = FV.Vector d
+-- | Datatype representing d dimensional vectors. The default implementation is
+-- based n VectorFixed. However, for small vectors we automatically select a
+-- more efficient representation.
+newtype Vector (d :: Nat) (r :: *) = Vector { _unV :: VectorF d r }
 
+-- | We select a vector depending on its length d
+type VectorF (d :: Nat) = VectorFamily (SelectF d) d
 
-type family VectorFamily (s :: SelectD) (d :: Nat) where
-  VectorFamily Zero   d = Const ()
-  VectorFamily One    d = Identity
-  VectorFamily Two    d = L2.V2
-  VectorFamily Three  d = L3.V3
-  VectorFamily Four   d = L4.V4
-  VectorFamily Many   d = FV.Vector d
+-- | The different implementation types we consider
+data SelectD = Zero | One | Two | Three | Four | Many
 
+-- | Mapping from natural numbers to the different implementation types
 type family SelectF (d :: Nat) where
   SelectF 0        = Zero
   SelectF 1        = One
@@ -45,19 +42,16 @@ type family SelectF (d :: Nat) where
   SelectF 4        = Four
   SelectF d        = Many
 
+-- | Mapping between the implementation type, and the actual implementation.
+type family VectorFamily (s :: SelectD) (d :: Nat) where
+  VectorFamily Zero   d = Const ()
+  VectorFamily One    d = Identity
+  VectorFamily Two    d = L2.V2
+  VectorFamily Three  d = L3.V3
+  VectorFamily Four   d = L4.V4
+  VectorFamily Many   d = FV.Vector d
 
-data SelectD = Zero | One | Two | Three | Four | Many
-
--- class VectorSelect (s :: SelectD) where
---   select :: proxy s
---          -> (VectorFamily Zero  d r -> a Zero)
---          -> (VectorFamily One   d r -> a One)
---          -> (VectorFamily Two   d r -> a Two)
---          -> (VectorFamily Three d r -> a Three)
---          -> (VectorFamily Four  d r -> a Four)
---          -> (VectorFamily Many  d r -> a Many)
---          -> VectorFamily s d r -> a s
-
+-- | Class to select the particular vector implementation
 class VectorSelect (s :: SelectD) where
   selectS :: proxy s
           -> f Zero
@@ -68,6 +62,7 @@ class VectorSelect (s :: SelectD) where
           -> f Many
           -> f s
 
+-- | Shortcut for selecting an implementation based on the type of d
 select   :: forall proxy d f. Arity d
          => proxy d
          -> f Zero
@@ -93,15 +88,11 @@ instance VectorSelect Many where
   selectS _ _ _ _ _ _ fm = fm
 
 
+-- | To be able to select based on d, you basically need this constraint
 type Arity d = (VectorSelect (SelectF d), V.Arity d)
 
-
-type VectorF (d :: Nat) = VectorFamily (SelectF d) d
-
-newtype Vector (d :: Nat) (r :: *) = Vector { _unV :: VectorF d r }
-
-
 --------------------------------------------------------------------------------
+
 instance Arity d => Functor (Vector d) where
   fmap f =  Vector . go . _unV
     where
@@ -120,6 +111,8 @@ runVF _ = runVF'
 
 instance Arity d => Foldable (Vector d) where
   foldMap = foldMapDefault
+  length _ = fromInteger $ natVal (Proxy :: Proxy d)
+  null v = length v == 0
 
 instance Arity d => Traversable (Vector d) where
   traverse f = fmap Vector . go . _unV
@@ -138,6 +131,8 @@ runVT            :: proxy d -> VecT d a b f s
                  -> VectorFamily s d a -> f (VectorFamily s d b)
 runVT _ (VecT f) = f
 
+--------------------------------------------------------------------------------
+
 instance Arity d => Applicative (Vector d) where
   pure x = Vector . runVec d $ select d (p x) (p x) (p x) (p x) (p x) (p x)
     where
@@ -150,9 +145,6 @@ instance Arity d => Applicative (Vector d) where
       d  = Proxy :: Proxy d
       a :: (Applicative (VectorFamily s d)) => Apply d a b s
       a = Apply $ \(Vector f) (Vector v) -> f <*> v
-
-
-
 
 newtype Vec d r s = Vec (VectorFamily s d r)
 runVec            :: proxy d -> Vec d r s -> VectorFamily s d r
@@ -167,141 +159,65 @@ runApply             :: (Arity d, s ~ SelectF d)
                      -> Vector d (a -> b) -> Vector d a -> VectorFamily s d b
 runApply _ (Apply f) = f
 
--- f0   :: proxy s -> VectorFamily s d (a -> b) -> VectorFamily s d a -> VectorFamily s d b
--- f0 _ = Apply
-
-
-
-
-
--- newtype Apply d a b (s :: SelectD) =
---   Apply (Vector d (a -> b) -> VectorFamily s d a -> Vector d b)
-
--- runApply            :: (Arity d, s ~ SelectF d) => proxy d
---                                -> Vector d (a -> b)
---                                -> VectorFamily s d a
---                                -> Apply d a b s
---                                -> Vector d b
--- runApply _ vf v (Apply f) = f vf v
-
-
 
 --------------------------------------------------------------------------------
 
--- instance V.Vector (Vector d) r where
---   construct = undefined
+instance (Eq r, Arity d)   => Eq (Vector d r) where
+  u == v = F.toList u == F.toList v
+-- and $ (==) <$> u <*> v
+instance (Ord r, Arity d)  => Ord (Vector d r) where
+  u `compare` v = F.toList u `compare` F.toList v
+
+instance (Show r, Arity d) => Show (Vector d r) where
+  show v = mconcat [ "Vector", show $ length v , " "
+                   , show $ F.toList v
+                   ]
+-- deriving instance (Arity d, NFData r) => NFData (Vector d r)
+
+-- instance (FromJSON r, Arity d)  => FromJSON (Vector d r) where
+--   parseJSON y = parseJSON y >>= \xs -> case vectorFromList xs of
+--                   Nothing -> fail . mconcat $
+--                     [ "FromJSON (Vector d a), wrong number of elements. Expected "
+--                     , show $ natVal (Proxy :: Proxy d)
+--                     , " elements but found "
+--                     , show $ length xs
+--                     , "."
+--                     ]
+--                   Just v -> pure v
+
+instance (ToJSON r, Arity d) => ToJSON (Vector d r) where
+  toJSON     = toJSON     . F.toList
+  toEncoding = toEncoding . F.toList
 
 
+instance Arity d => Additive (Vector d) where
+  zero = pure 0
+  u ^+^ v = (+) <$> u <*> v
 
+instance Arity d => Affine (Vector d) where
+  type Diff (Vector d) = Vector d
+  u .-. v = u ^-^ v
+  p .+^ v = p ^+^ v
 
+instance Arity d => Metric (Vector d)
 
+--------------------------------------------------------------------------------
 
-
-
-gmap     :: (Arity d, s ~ SelectF d)
-         => prox d -> (a -> b) -> VectorFamily s d a -> VectorFamily s d b
-gmap d f = runVF d $ select d (VecF $ fmap f)
-                                (VecF $ fmap f)
-                                (VecF $ fmap f)
-                                (VecF $ fmap f)
-                                (VecF $ fmap f)
-                                (VecF $ fmap f)
-
-
-
-
-
-
-
-
-
-
--- selectFunc f1 f2 f3 f4 fm = select
-
--- type VFunc
-
--- newtype FMap d a b s = FMap {runFMap :: VectorFamily s d a -> VectorFamily s d a}
-
-
--- gmap     :: forall proxy d a b. Arity d
---          => proxy d -> (a -> b) -> VectorF d a -> FMap d a b (SelectF d)
--- gmap _ f = select (Proxy :: Proxy (SelectF d)) f0 f1 f2 f3 f4 fm
---     where
---       -- f0 :: VectorFamily Zero d a -> VectorFamily Zero d b
---       f0 = Fmap . fmap f
---       -- f1 :: VectorFamily One d a -> VectorFamily One d b
---       f1 = Fmap . fmap f
---       -- f2 :: VectorFamily Two d a -> VectorFamily Two d b
---       f2 = Fmap . fmap f
---       -- f3 :: VectorFamily Three d a -> VectorFamily Three d b
---       f3 = Fmap . fmap f
---       -- f4 :: VectorFamily Four d a -> VectorFamily Four d b
---       f4 = Fmap . fmap f
---       -- fm :: VectorFamily Many d a -> VectorFamily Many d b
---       fm = Fmap . fmap f
-
-
-
-
--- instance Arity d => Functor (Vector d) where
---   fmap f = Vector . runFMap . gmap (Proxy :: Proxy d) f . _unV
-
--- newtype FMap d r s = Fmap { runFMap :: VectorFamily s d r }
-
--- gmap     :: forall proxy d a b. Arity d
---          => proxy d -> (a -> b) -> VectorF d a -> FMap d b (SelectF d)
--- gmap _ f = select (Proxy :: Proxy (SelectF d)) f0 f1 f2 f3 f4 fm
---     where
---       -- f0 :: VectorFamily Zero d a -> VectorFamily Zero d b
---       f0 = Fmap . fmap f
---       -- f1 :: VectorFamily One d a -> VectorFamily One d b
---       f1 = Fmap . fmap f
---       -- f2 :: VectorFamily Two d a -> VectorFamily Two d b
---       f2 = Fmap . fmap f
---       -- f3 :: VectorFamily Three d a -> VectorFamily Three d b
---       f3 = Fmap . fmap f
---       -- f4 :: VectorFamily Four d a -> VectorFamily Four d b
---       f4 = Fmap . fmap f
---       -- fm :: VectorFamily Many d a -> VectorFamily Many d b
---       fm = Fmap . fmap f
-
-
-
-                    -- (fmap f) (fmap f) (fmap f) (fmap f) (fmap f) (fmap f) . _unV
-
-
-
-
-
--- type instance V.Dim (Vector d)  = d
-
--- type Vec d r = (V.Vector (VectorF d) r, V.Dim (VectorF d) ~ d)
-
--- type instance Index   (Vector d r) = Int
--- type instance IxValue (Vector d r) = r
+type instance V.Dim (Vector d)  = d
 
 -- instance V.Vector (Vector d) r where
 --   construct  = Vector <$> V.construct
 --   inspect    = V.inspect . _unV
 --   basicIndex = V.basicIndex . _unV
 
+type instance Index   (Vector d r) = Int
+type instance IxValue (Vector d r) = r
 
--- type Arity d = (forall r. V.Vector (VectorF d) r)
 
-
--- instance Arity d => Additive (Vector d) where
---   zero = pure 0
---   (Vector u) ^+^ (Vector v) = Vector $ V.zipWith (+) u v
-
--- instance Arity d => Affine (Vector d) where
---   type Diff (Vector d) = Vector d
---   u .-. v = u ^-^ v
---   p .+^ v = p ^+^ v
-
--- instance Arity d => Metric (Vector d)
 
 
 --------------------------------------------------------------------------------
+-- * Convenience "constructors"
 
 pattern Vector1   :: r -> Vector 1 r
 pattern Vector1 x = (Vector (Identity x))
