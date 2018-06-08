@@ -8,9 +8,12 @@ import           Control.Lens hiding (element)
 import           Data.Aeson (ToJSON(..),FromJSON(..))
 import qualified Data.Foldable as F
 import qualified Data.Geometry.Vector.VectorFixed as FV
+import           Data.Maybe (fromMaybe)
 import           Data.Proxy
+import           Data.Semigroup
 import           Data.Traversable (foldMapDefault,fmapDefault)
 import qualified Data.Vector.Fixed as V
+import           Data.Vector.Fixed.Cont (Peano(..))
 import           GHC.TypeLits
 import           Linear.Affine (Affine(..))
 import           Linear.Metric
@@ -29,6 +32,10 @@ newtype Vector (d :: Nat) (r :: *) = Vector { _unV :: VectorF d r }
 
 -- | We select a vector depending on its length d
 type VectorF (d :: Nat) = VectorFamily (SelectF d) d
+
+unV :: Lens (Vector d r) (Vector d t)
+            (VectorFamily (SelectF d) d r) (VectorFamily (SelectF d) d t)
+unV = lens (\(Vector v) -> v) (const Vector)
 
 -- | The different implementation types we consider
 data SelectD = Zero | One | Two | Three | Four | Many
@@ -205,13 +212,106 @@ instance Arity d => Metric (Vector d)
 
 type instance V.Dim (Vector d)  = d
 
--- instance V.Vector (Vector d) r where
---   construct  = Vector <$> V.construct
---   inspect    = V.inspect . _unV
---   basicIndex = V.basicIndex . _unV
+
+instance Arity d => V.Vector (Vector d) r where
+  -- construct    = Vector <$> runConstruct d (select d c0 c1 c2 c3 c4 cD)
+  --   where
+  --     d = Proxy :: Proxy d
+  --     c0 = undefined
+  --     c1 = undefined
+  --     c2 = undefined -- Construct $ V.Fun (Vec . L2.V2)
+  --     c3 = undefined -- Construct $ V.Fun L3.V3
+  --     c4 = undefined -- Construct $ V.Fun L4.V4
+  --     cD = Construct $ V.construct
+  inspect      = undefined -- V.inspect . _unV
+  basicIndex v i = fromMaybe (error e) $ v^?element' i
+    where e = "Data.Geometry.VectorFamily.basicIndex: index out of bounds " <> show i
+
+-- cc2 :: Construct d r Two --(d ~ 2) => V.Fun (Peano d) r (VectorFamily Two d r)
+-- cc2 = Construct $ V.construct
+
+-- -- type instance V.Dim (Vec d r s)  = d
+
+
+-- newtype Construct d r s =
+--   Construct (V.Fun (Peano (V.Dim (VectorFamily s d))) r (VectorFamily s d r))
+-- runConstruct                 :: (d ~ V.Dim (VectorFamily s d))
+--                              => proxy d -> Construct d r s
+--                              -> V.Fun (Peano d) r (VectorFamily s d r)
+-- runConstruct _ (Construct f) = f
+
+
+
+-- type instance V.Dim L2.V2 = 2
+-- instance V.Vector L2.V2 r where
+--   construct = V.Fun L2.V2
+--   inspect (L2.V2 x y) (V.Fun f) = f x y
+--   basicIndex (L2.V2 x y) = \case
+--     0 -> x
+--     1 -> y
+--     _ -> error "Data.Geometry.Vector.VectorFamily.basicIndex: V2: element out of bounds"
+
+--------------------------------------------------------------------------------
+
 
 type instance Index   (Vector d r) = Int
 type instance IxValue (Vector d r) = r
+
+instance Arity d => Ixed (Vector d r) where
+  ix = element'
+
+
+-- | Lens into the i^th element
+element   :: forall proxy i d r. (Arity d, Arity i, (i + 1) <= d)
+          => proxy i -> Lens' (Vector d r) r
+element i = singular $ element' (fromInteger $ natVal i)
+
+-- | Similar to 'element' above. Except that we don't have a static guarantee
+-- that the index is in bounds. Hence, we can only return a Traversal
+element'   :: forall d r. Arity d => Int -> Traversal' (Vector d r) r
+element' i = unV.l
+  where
+    d = Proxy :: Proxy d
+    l = runElem d $ select d (elem0 i) (elem1 i) (elem2 i) (elem3 i) (elem4 i) (elemD i)
+
+
+newtype Elem d r s = Elem (Traversal' (VectorFamily s d r) r)
+runElem            :: proxy d -> Elem d r s -> Traversal' (VectorFamily s d r) r
+runElem _ (Elem t) = t
+
+elem0   :: Int -> Elem d r Zero
+elem0 _ = Elem $ \_ v -> pure v
+-- zero length vectors don't store any elements
+
+elem1 :: Int -> Elem d r One
+elem1 = \case
+           0 -> Elem $ lens runIdentity (\_ -> Identity)
+           _ -> Elem $ \_ v -> pure v
+
+elem2 :: Int -> Elem d r Two
+elem2 = \case
+          0 -> Elem L2._x
+          1 -> Elem L2._y
+          _ -> Elem $ \_ v -> pure v
+
+elem3 :: Int -> Elem d r Three
+elem3 = \case
+          0 -> Elem L3._x
+          1 -> Elem L3._y
+          2 -> Elem L3._z
+          _ -> Elem $ \_ v -> pure v
+
+elem4 :: Int -> Elem d r Four
+elem4 = \case
+          0 -> Elem L4._x
+          1 -> Elem L4._y
+          2 -> Elem L4._z
+          3 -> Elem L4._w
+          _ -> Elem $ \_ v -> pure v
+
+elemD   :: forall d r. V.Arity d => Int -> Elem d r Many
+elemD i = Elem $ FV.element' i
+
 
 
 
@@ -233,61 +333,6 @@ pattern Vector4 x y z w = (Vector (L4.V4 x y z w))
 
 --------------------------------------------------------------------------------
 
-
--- type instance V.Dim L2.V2 = 2
--- instance V.Vector L2.V2 r where
---   construct = V.Fun L2.V2
---   inspect (L2.V2 x y) (V.Fun f) = f x y
---   basicIndex (L2.V2 x y) = \case
---     0 -> x
---     1 -> y
---     _ -> error "Data.Geometry.Vector.VectorFamily.basicIndex: V2: element out of bounds"
--- type instance V.Dim L3.V3 = 3
--- instance V.Vector L3.V3 r where
---   construct = V.Fun L3.V3
---   inspect (L3.V3 x y z) (V.Fun f) = f x y z
---   basicIndex (L3.V3 x y z) = \case
---     0 -> x
---     1 -> y
---     2 -> z
---     _ -> error "Data.Geometry.Vector.VectorFamily.basicIndex: V3: element out of bounds"
--- type instance V.Dim L4.V4 = 4
--- instance V.Vector L4.V4 r where
---   construct = V.Fun L4.V4
---   inspect (L4.V4 x y z w) (V.Fun f) = f x y z w
---   basicIndex (L4.V4 x y z w) = \case
---     0 -> x
---     1 -> y
---     2 -> z
---     3 -> w
---     _ -> error "Data.Geometry.Vector.VectorFamily.basicIndex: V4: element out of bounds"
-
--- instance Vec d r => Ixed (Vector d r) where
---   ix i = unV.V.element i
-
-
--- element'   :: Vec d r => Int -> Traversal' (Vector d r) r
--- element' i = ix i
-
--- --------------------------------------------------------------------------------
-
--- -- -- | Lens into the i th element
--- -- element   :: forall proxy i d r. (Arity d, Arity i, (i + 1) <= d)
--- --           => proxy i -> Lens' (Vector d r) r
--- -- element _ = V.elementTy (Proxy :: Proxy i)
-
-
-
--- -- -- | Similar to 'element' above. Except that we don't have a static guarantee
--- -- -- that the index is in bounds. Hence, we can only return a Traversal
--- -- element'   :: forall d r. Arity d => Int -> Traversal' (Vector d r) r
--- -- element' i f v
--- --   | 0 <= i && i < fromInteger (natVal (C :: C d)) = f (v V.! i)
--- --                                                  <&> \a -> (v&V.element i .~ a)
--- --        -- Implementation based on that of Ixed Vector in Control.Lens.At
--- --   | otherwise                                     = pure v
-
-
 -- -- destruct            :: (Vec d r, Vec (d + 1) r, 1 <= (d + 1))
 -- --                     => Vector (d + 1) r -> (r, Vector d r)
 -- -- destruct (Vector v) = (V.head v, Vector $ V.tail v)
@@ -299,165 +344,8 @@ pattern Vector4 x y z w = (Vector (L4.V4 x y z w))
 -- -- vectorFromListUnsafe :: V.Arity d => [a] -> Vector d a
 -- -- vectorFromListUnsafe = Vector . V.fromList
 
+ --------------------------------------------------------------------------------
 
-
--- -- instance (Applicative (VectorF d)) => Applicative (Vector d) where
--- --   pure x = Vector $ pure x
--- --   (Vector f) <*> (Vector x) = Vector $ f <*> x
-
--- -- instance Arity d => V.Vector (Vector d) r where
--- --   -- construct = fmap Vector . V.construct
--- --   inspect (Vector v) (V.Fun f) = V.inspect v f
--- -- -- instance Ixed (Vector 2 r) where
--- -- --   ix i f (Vector v) = undefined -- Vector <$> FV.element' i f v
-
-
--- -- instance (Arity d, d ~ (5+d0)) => Ixed (Vector d r) where
--- --   ix i f (Vector v) = Vector <$> FV.element' i f v
-
-
--- -- ' = case v' of
--- --     (V1 x) -> case i of
--- --                 0 -> V1 <$> f x
--- --                 _ -> pure v'
--- --     (V2 v) -> case i of
--- --                 0 -> V2 <$> L2._x f v
--- --                 1 -> V2 <$> L2._y f v
--- --                 _ -> pure v'
--- --     (V3 v) -> case i of
--- --                 0 -> V3 <$> L3._x f v
--- --                 1 -> V3 <$> L3._y f v
--- --                 2 -> V3 <$> L3._z f v
--- --                 _ -> pure v'
--- --     (V4 v) -> case i of
--- --                 0 -> V4 <$> L4._x f v
--- --                 1 -> V4 <$> L4._y f v
--- --                 2 -> V4 <$> L4._z f v
--- --                 3 -> V4 <$> L4._w f v
--- --                 _ -> pure v'
--- --     (VD v) -> VD <$> FV.element' i f v
-
-
-
--- -- instance Arity d => Ixed (Vector d r) where
--- --   ix i f v' = case v' of
--- --     (V1 x) -> case i of
--- --                 0 -> V1 <$> f x
--- --                 _ -> pure v'
--- --     (V2 v) -> case i of
--- --                 0 -> V2 <$> L2._x f v
--- --                 1 -> V2 <$> L2._y f v
--- --                 _ -> pure v'
--- --     (V3 v) -> case i of
--- --                 0 -> V3 <$> L3._x f v
--- --                 1 -> V3 <$> L3._y f v
--- --                 2 -> V3 <$> L3._z f v
--- --                 _ -> pure v'
--- --     (V4 v) -> case i of
--- --                 0 -> V4 <$> L4._x f v
--- --                 1 -> V4 <$> L4._y f v
--- --                 2 -> V4 <$> L4._z f v
--- --                 3 -> V4 <$> L4._w f v
--- --                 _ -> pure v'
--- --     (VD v) -> VD <$> FV.element' i f v
-
--- -- element   :: (Arity i, Arity d, (i+1) <= d) => proxy i -> Lens' (Vector d r) r
--- -- element i = singular $ ix (fromIntegral $ natVal i)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
--- -- class HasElement' (i :: Nat) (v :: * -> *) (b :: Bool) where
--- --   elementL :: Arity i => proxy0 b -> proxy i -> Lens' (v r) r
-
--- -- instance HasElement' 0 Identity False where
--- --   elementL _ _ = lens runIdentity (const Identity)
--- -- instance HasElement' 0 L2.V2 False where
--- --   elementL _ _ = L2._x
--- -- instance HasElement' 1 L2.V2 False where
--- --   elementL _ _ = L2._y
--- -- instance HasElement' 0 L3.V3 False where
--- --   elementL _ _ = L3._x
--- -- instance HasElement' 1 L3.V3 False where
--- --   elementL _ _ = L3._y
--- -- instance HasElement' 2 L3.V3 False where
--- --   elementL _ _ = L3._z
--- -- instance HasElement' 0 L4.V4 False where
--- --   elementL _ _ = L4._x
--- -- instance HasElement' 1 L4.V4 False where
--- --   elementL _ _ = L4._y
--- -- instance HasElement' 2 L4.V4 False where
--- --   elementL _ _ = L4._z
--- -- instance HasElement' 3 L4.V4 False where
--- --   elementL _ _ = L4._w
-
--- -- instance (Arity d, (i+1) <= d) => HasElement' i (FV.Vector d) True where
--- --   elementL _ = FV.element
-
--- -- class HasElement (i :: Nat) (d :: Nat) where
--- --   elementL' :: (Arity i, Arity d, (i+1) <= d)
--- --             => proxy0 d -> proxy i -> Lens' (VectorF d r) r
-
--- -- instance (v ~ VectorF d, b ~ (5 <=? d), HasElement' i v b) => HasElement i d where
--- --   elementL' _ = elementL (Proxy :: Proxy (5 <=? d))
-
-
--- -- element   :: forall proxy i d r. (Arity i, Arity d, (i+1) <= d, HasElement i d)
--- --           => proxy i -> Lens' (Vector d r) r
--- -- element i = unV.elementL' (Proxy :: Proxy d) i
-
-
--- -- vectorFromListUnsafe :: forall d r. Arity d => [r] -> Vector d r
--- -- vectorFromListUnsafe = \case
--- --     []             -> error "Data.Vector.VectorFamily.vectorFromListUnsafe: Empty vector"
--- --     [x] | expect 1 -> Vector (Identity x)
-
--- --   where
--- --     d = natVal (Proxy :: Proxy d)
-
--- --     expect l = d == l
-
-
--- -- class HasElement (i :: Nat) (d :: Nat) (b :: Bool) where
--- --   elementL :: (i <= d, Arity i, Arity d) => proxy0 b -> proxy i -> Lens' (Vector d r) r
-
--- -- instance HasElement 0 2 False where
--- --   elementL _ _ = unV.L2._x
--- -- instance HasElement 1 2 False where
--- --   elementL _ = unV.L2._y
--- -- instance HasElement 0 3 False where
--- --   elementL _ = unV.L3._x
--- -- instance HasElement 1 3 False where
--- --   elementL _ = unV.L3._y
--- -- instance HasElement 2 3 False where
--- --   elementL _ = unV.L3._z
-
--- -- instance HasElement i d True where
--- --   element _ px = unV.FV.element px
-
-
--- -- --------------------------------------------------------------------------------
-
--- -- | Cross product of two three-dimensional vectors
--- cross       :: Num r => Vector 3 r -> Vector 3 r -> Vector 3 r
--- (Vector u) `cross` (Vector v) = Vector $ u `L3.cross` v
+-- | Cross product of two three-dimensional vectors
+cross       :: Num r => Vector 3 r -> Vector 3 r -> Vector 3 r
+(Vector u) `cross` (Vector v) = Vector $ u `L3.cross` v
