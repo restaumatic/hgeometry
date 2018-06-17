@@ -62,8 +62,7 @@ type family VectorFamily (s :: SelectD) (d :: Nat) = result | result -> s where
 
 -- | Class to select the particular vector implementation
 class VectorSelect (s :: SelectD) where
-  selectS :: proxy s
-          -> f Zero
+  selectS :: f Zero
           -> f One
           -> f Two
           -> f Three
@@ -71,14 +70,14 @@ class VectorSelect (s :: SelectD) where
           -> f Many
           -> f s
 
-  selectS' :: f Zero
-          -> f One
-          -> f Two
-          -> f Three
-          -> f Four
-          -> f Many
-          -> f s
-  selectS' = selectS (Proxy :: Proxy s)
+  -- selectS' :: f Zero
+  --         -> f One
+  --         -> f Two
+  --         -> f Three
+  --         -> f Four
+  --         -> f Many
+  --         -> f s
+  -- selectS' = selectS (Proxy :: Proxy s)
 
 
 -- | Shortcut for selecting an implementation based on the type of d
@@ -91,7 +90,7 @@ select   :: forall proxy d f. Arity d
          -> f Four
          -> f Many
          -> f (SelectF d)
-select _ = selectS (Proxy :: Proxy (SelectF d))
+select _ = selectS
 {-# INLINE select #-}
 
 select1       :: ( Arity d
@@ -108,22 +107,22 @@ select1 _ d f = select d f f f f f f
 {-# INLINE select1 #-}
 
 instance VectorSelect Zero where
-  selectS _ f0 _ _ _ _ _ = f0
+  selectS f0 _ _ _ _ _ = f0
   {-# INLINE selectS #-}
 instance VectorSelect One where
-  selectS _ _ f1 _ _ _ _ = f1
+  selectS _ f1 _ _ _ _ = f1
   {-# INLINE selectS #-}
 instance VectorSelect Two where
-  selectS _ _ _ f2 _ _ _ = f2
+  selectS _ _ f2 _ _ _ = f2
   {-# INLINE selectS #-}
 instance VectorSelect Three where
-  selectS _ _ _ _ f3 _ _ = f3
+  selectS _ _ _ f3 _ _ = f3
   {-# INLINE selectS #-}
 instance VectorSelect Four where
-  selectS _ _ _ _ _ f4 _ = f4
+  selectS _ _ _ _ f4 _ = f4
   {-# INLINE selectS #-}
 instance VectorSelect Many where
-  selectS _ _ _ _ _ _ fm = fm
+  selectS _ _ _ _ _ fm = fm
   {-# INLINE selectS #-}
 
 
