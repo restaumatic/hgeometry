@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -ddump-simpl -ddump-to-file #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -36,6 +37,7 @@ type VectorF (d :: Nat) = VectorFamily (SelectF d) d
 unV :: Lens (Vector d r) (Vector d t)
             (VectorFamily (SelectF d) d r) (VectorFamily (SelectF d) d t)
 unV = lens (\(Vector v) -> v) (const Vector)
+{-# INLINE unV #-}
 
 -- | The different implementation types we consider
 data SelectD = Zero | One | Two | Three | Four | Many
@@ -50,7 +52,7 @@ type family SelectF (d :: Nat) where
   SelectF d        = Many
 
 -- | Mapping between the implementation type, and the actual implementation.
-type family VectorFamily (s :: SelectD) (d :: Nat) where
+type family VectorFamily (s :: SelectD) (d :: Nat) = result | result -> s where
   VectorFamily Zero   d = Const ()
   VectorFamily One    d = Identity
   VectorFamily Two    d = L2.V2
@@ -69,6 +71,16 @@ class VectorSelect (s :: SelectD) where
           -> f Many
           -> f s
 
+  selectS' :: f Zero
+          -> f One
+          -> f Two
+          -> f Three
+          -> f Four
+          -> f Many
+          -> f s
+  selectS' = selectS (Proxy :: Proxy s)
+
+
 -- | Shortcut for selecting an implementation based on the type of d
 select   :: forall proxy d f. Arity d
          => proxy d
@@ -80,19 +92,39 @@ select   :: forall proxy d f. Arity d
          -> f Many
          -> f (SelectF d)
 select _ = selectS (Proxy :: Proxy (SelectF d))
+{-# INLINE select #-}
+
+select1       :: ( Arity d
+                 , c (VectorFamily Zero d)
+                 , c (VectorFamily One d)
+                 , c (VectorFamily Two d)
+                 , c (VectorFamily Three d)
+                 , c (VectorFamily Four d)
+                 , c (VectorFamily Many d)
+                 )
+              => proxy' c
+              -> proxy d -> (forall s. c (VectorFamily s d) => f s) -> f (SelectF d)
+select1 _ d f = select d f f f f f f
+{-# INLINE select1 #-}
 
 instance VectorSelect Zero where
   selectS _ f0 _ _ _ _ _ = f0
+  {-# INLINE selectS #-}
 instance VectorSelect One where
   selectS _ _ f1 _ _ _ _ = f1
+  {-# INLINE selectS #-}
 instance VectorSelect Two where
   selectS _ _ _ f2 _ _ _ = f2
+  {-# INLINE selectS #-}
 instance VectorSelect Three where
   selectS _ _ _ _ f3 _ _ = f3
+  {-# INLINE selectS #-}
 instance VectorSelect Four where
   selectS _ _ _ _ _ f4 _ = f4
+  {-# INLINE selectS #-}
 instance VectorSelect Many where
   selectS _ _ _ _ _ _ fm = fm
+  {-# INLINE selectS #-}
 
 
 -- | To be able to select based on d, you basically need this constraint
@@ -100,37 +132,51 @@ type Arity d = (VectorSelect (SelectF d), V.Arity d)
 
 --------------------------------------------------------------------------------
 
+-- gmap :: forall a b s d. (Arity d) => (a -> b) -> VectorFamily (SelectF d) d a
+--        -> VectorFamily (SelectF d) d b
+-- gmap f = runVF (Proxy :: Proxy d) $ selectS' (VecF $ fmap f)
+--                            (VecF $ fmap f)
+--                            (VecF $ fmap f)
+--                            (VecF $ fmap f)
+--                            (VecF $ fmap f)
+--                            (VecF $ fmap f)
+
 instance Arity d => Functor (Vector d) where
   fmap f =  Vector . go . _unV
     where
       d  = Proxy :: Proxy d
-      go = runVF d $ select d (VecF $ fmap f)
-                              (VecF $ fmap f)
-                              (VecF $ fmap f)
-                              (VecF $ fmap f)
-                              (VecF $ fmap f)
-                              (VecF $ fmap f)
+      go = runVF d $ select1 (Proxy :: Proxy Functor) d (VecF $ fmap f)
 
-newtype VecF d a b (s :: SelectD) =
+      -- go = runVF d $ select d (VecF $ fmap f)
+      --                         (VecF $ fmap f)
+      --                         (VecF $ fmap f)
+      --                         (VecF $ fmap f)
+      --                         (VecF $ fmap f)
+      --                         (VecF $ fmap f)
+
+newtype VecF a b d (s :: SelectD) =
   VecF { runVF' :: VectorFamily s d a -> VectorFamily s d b}
-runVF   :: proxy d -> VecF d a b s -> VectorFamily s d a -> VectorFamily s d b
+runVF   :: proxy d -> VecF a b d s -> VectorFamily s d a -> VectorFamily s d b
 runVF _ = runVF'
 
 instance Arity d => Foldable (Vector d) where
+  {-# SPECIALIZE instance Foldable (Vector 2) #-}
   foldMap = foldMapDefault
   length _ = fromInteger $ natVal (Proxy :: Proxy d)
   null v = length v == 0
 
 instance Arity d => Traversable (Vector d) where
+  {-# SPECIALIZE instance Traversable (Vector 2) #-}
   traverse f = fmap Vector . go . _unV
     where
       d  = Proxy :: Proxy d
-      go = runVT  d $ select d (VecT $ traverse f)
-                               (VecT $ traverse f)
-                               (VecT $ traverse f)
-                               (VecT $ traverse f)
-                               (VecT $ traverse f)
-                               (VecT $ traverse f)
+      go = runVT d $ select1 (Proxy :: Proxy Traversable) d (VecT $ traverse f)
+      -- go = runVT  d $ select d (VecT $ traverse f)
+      --                          (VecT $ traverse f)
+      --                          (VecT $ traverse f)
+      --                          (VecT $ traverse f)
+      --                          (VecT $ traverse f)
+      --                          (VecT $ traverse f)
 
 newtype VecT d a b f (s :: SelectD) = VecT (VectorFamily s d a -> f (VectorFamily s d b))
 
@@ -173,13 +219,15 @@ instance (Eq r, Arity d)   => Eq (Vector d r) where
   u == v = F.toList u == F.toList v
 -- and $ (==) <$> u <*> v
 instance (Ord r, Arity d)  => Ord (Vector d r) where
-  u `compare` v = F.toList u `compare` F.toList v
+  u `compare` v = F.foldl' (<>) EQ $ compare <$> u <*> v
+
+-- F.toList u `compare` F.toList v
 
 instance (Show r, Arity d) => Show (Vector d r) where
   show v = mconcat [ "Vector", show $ length v , " "
                    , show $ F.toList v
                    ]
--- deriving instance (Arity d, NFData r) => NFData (Vector d r)
+deriving instance (NFData (VectorFamily (SelectF d) d r)) => NFData (Vector d r)
 
 -- instance (FromJSON r, Arity d)  => FromJSON (Vector d r) where
 --   parseJSON y = parseJSON y >>= \xs -> case vectorFromList xs of
@@ -213,19 +261,19 @@ instance Arity d => Metric (Vector d)
 type instance V.Dim (Vector d)  = d
 
 
-instance Arity d => V.Vector (Vector d) r where
-  -- construct    = Vector <$> runConstruct d (select d c0 c1 c2 c3 c4 cD)
-  --   where
-  --     d = Proxy :: Proxy d
-  --     c0 = undefined
-  --     c1 = undefined
-  --     c2 = undefined -- Construct $ V.Fun (Vec . L2.V2)
-  --     c3 = undefined -- Construct $ V.Fun L3.V3
-  --     c4 = undefined -- Construct $ V.Fun L4.V4
-  --     cD = Construct $ V.construct
-  inspect      = undefined -- V.inspect . _unV
-  basicIndex v i = fromMaybe (error e) $ v^?element' i
-    where e = "Data.Geometry.VectorFamily.basicIndex: index out of bounds " <> show i
+-- instance Arity d => V.Vector (Vector d) r where
+--   -- construct    = Vector <$> runConstruct d (select d c0 c1 c2 c3 c4 cD)
+--   --   where
+--   --     d = Proxy :: Proxy d
+--   --     c0 = undefined
+--   --     c1 = undefined
+--   --     c2 = undefined -- Construct $ V.Fun (Vec . L2.V2)
+--   --     c3 = undefined -- Construct $ V.Fun L3.V3
+--   --     c4 = undefined -- Construct $ V.Fun L4.V4
+--   --     cD = Construct $ V.construct
+--   inspect      = undefined -- V.inspect . _unV
+--   basicIndex v i = fromMaybe (error e) $ v^?element' i
+--     where e = "Data.Geometry.VectorFamily.basicIndex: index out of bounds " <> show i
 
 -- cc2 :: Construct d r Two --(d ~ 2) => V.Fun (Peano d) r (VectorFamily Two d r)
 -- cc2 = Construct $ V.construct

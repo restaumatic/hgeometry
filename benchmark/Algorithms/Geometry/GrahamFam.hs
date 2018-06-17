@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 module Algorithms.Geometry.GrahamFam( convexHull
                                  , upperHull
                                  , lowerHull, fromP
@@ -17,6 +18,12 @@ import           GHC.TypeLits
 
 
 newtype MyPoint d r = MyPoint (VF.Vector d r)
+
+deriving instance (VF.Arity d, Eq r)  => Eq (MyPoint d r)
+deriving instance (VF.Arity d, Ord r) => Ord (MyPoint d r)
+deriving instance (VF.Arity d, Show r) => Show (MyPoint d r)
+deriving instance (NFData (VF.Vector d r)) => NFData (MyPoint d r)
+
 pattern MyPoint2 x y = MyPoint (VF.Vector2 x y)
 
 

@@ -31,7 +31,7 @@ main = defaultMainWith cfg [ benchmark ]
 
 benchmark :: Benchmark
 benchmark = bgroup "convexHullBench"
-    [ env (genPts (Proxy :: Proxy Int) 10000) benchBuild
+    [ env (genPts (Proxy :: Proxy Int) 2000) benchBuild
     ]
 
 --------------------------------------------------------------------------------
@@ -42,18 +42,22 @@ genPts _ n = generate (NonEmpty.fromList <$> vectorOf n arbitrary)
 -- | Benchmark building the convexHull
 benchBuild    :: (Ord r, Num r, NFData r) => NonEmpty (Point 2 r :+ ()) -> Benchmark
 benchBuild ps = bgroup "build" [ bgroup (show n) (build $ take' n ps)
-                               | n <- sizes ps
+                               | n <- sizes' ps
                                ]
   where
+    sizes' = (:[]) . length
     take' n = NonEmpty.fromList . NonEmpty.take n
 
-    build pts = [ bench "sort"               $ nf NonEmpty.sort pts'
-                , bench "grahamScan"         $ nf GrahamScan.convexHull pts
-                , bench "grahamScanWithoutP" $ nf GS.convexHull pts'
-                , bench "grahamScanGADT"     $ nf GG.convexHull pts''
-                , bench "grahamScanFamily"   $ nf GF.convexHull pts''
+    build pts = [ bench "sort"               $ nf NonEmpty.sort ptsGS
+                , bench "sortFamily"         $ nf NonEmpty.sort ptsGF
+                -- , bench "sortFixed"          $ nf NonEmpty.sort pts
+                -- , bench "grahamScan"         $ nf GrahamScan.convexHull pts
+                -- , bench "grahamScanWithoutP" $ nf GS.convexHull ptsGS
+                -- , bench "grahamScanGADT"     $ nf GG.convexHull ptsGG
+                -- , bench "grahamScanFamily"   $ nf GF.convexHull ptsGF
                 --, bench "Div&Conq"   $ nf DivideAndConqueror.convexHull pts
                 ]
       where
-        pts'  = fmap (GS.fromP) pts
-        pts'' = fmap (GF.fromP) pts
+        ptsGS  = fmap (GS.fromP) pts
+        ptsGF  = fmap (GF.fromP) pts
+        ptsGG  = fmap (GG.fromP) pts
