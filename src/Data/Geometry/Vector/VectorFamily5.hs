@@ -136,18 +136,17 @@ instance VectorSelect Many where
 -- | To be able to select based on d, you basically need this constraint
 type Arity d = (VectorSelect (SelectF d), V.Arity d)
 
+--------------------------------------------------------------------------------
+
+newtype Compute f a b d s =
+  Compute { run :: VectorFamily s d a -> f (VectorFamily s d b) }
+
+withV   :: Functor f
+        => Compute f a b d (SelectF d) -> Vector d a -> f (Vector d b)
+withV c = fmap MKVector . run c . _unV
 
 
-
-newtype Compute f g a b d s =
-  Compute { run :: f (VectorFamily s d a) -> g (VectorFamily s d b) }
-
-withV   :: (Functor g, Functor f)
-        => Compute f g a b d (SelectF d) -> f (Vector d a) -> g (Vector d b)
-withV c = fmap MKVector . run c . fmap _unV
-
-
-selectD     :: (Functor f, Functor g, VectorSelect (SelectF d)
+selectD     :: (Functor f, VectorSelect (SelectF d)
                , constr (VectorFamily Zero  d)
                , constr (VectorFamily One   d)
                , constr (VectorFamily Two   d)
@@ -156,40 +155,62 @@ selectD     :: (Functor f, Functor g, VectorSelect (SelectF d)
                , constr (VectorFamily Many  d)
                )
             => proxy constr
-            -> (forall s. constr (VectorFamily s d) => Compute f g a b d s)
-            -> f (Vector d a) -> g (Vector d b)
+            -> (forall s. constr (VectorFamily s d) => Compute f a b d s)
+            -> Vector d a -> f (Vector d b)
 selectD _ c = withV (select c c c c c c)
 
 
+--------------------------------------------------------------------------------
+
 instance Arity d => Functor (Vector d) where
-  fmap f = runIdentity . selectD (Proxy :: Proxy Functor) (mkFMap f) . Identity
+  fmap f = runIdentity . selectD (Proxy :: Proxy Functor) (mkFMap f)
 
 mkFMap   :: Functor (VectorFamily s d)
-         => (a -> b) -> Compute Identity Identity a b d s
-mkFMap f = Compute $ Identity . fmap f . runIdentity
+         => (a -> b) -> Compute Identity a b d s
+mkFMap f = Compute $ Identity . fmap f
+
+
+--------------------------------------------------------------------------------
+
+newtype Consume a b d s =
+  Consume { runConsume :: VectorFamily s d a -> b }
+
+withVC   :: Consume a b d (SelectF d) -> Vector d a -> b
+withVC c = runConsume c . _unV
+
+selectC     :: ( VectorSelect (SelectF d)
+               , constr (VectorFamily Zero  d)
+               , constr (VectorFamily One   d)
+               , constr (VectorFamily Two   d)
+               , constr (VectorFamily Three d)
+               , constr (VectorFamily Four  d)
+               , constr (VectorFamily Many  d)
+               )
+            => proxy constr
+            -> (forall s. constr (VectorFamily s d) => Consume a b d s)
+            -> Vector d a -> b
+selectC _ c = withVC (select c c c c c c)
+
+--------------------------------------------------------------------------------
+
+mkFoldMap   :: (Foldable (VectorFamily s d), Monoid m)
+            => (a -> m) -> Consume a m d s
+mkFoldMap f = Consume $ foldMap f
 
 instance Arity d => Foldable (Vector d) where
-  foldMap = foldMapDefault
+  foldMap f = selectC (Proxy :: Proxy Foldable) (mkFoldMap f)
   length _ = fromInteger $ natVal (Proxy :: Proxy d)
   null v = length v == 0
 
 instance Arity d => Traversable (Vector d) where
-  traverse f = selectD (Proxy :: Proxy Traversable) (mkTraverse f) . Identity
+  traverse f = selectD (Proxy :: Proxy Traversable) (mkTraverse f)
 
 mkTraverse   :: (Applicative f, Traversable (VectorFamily s d))
-             => (a -> f b) -> Compute Identity f a b d s
-mkTraverse f = Compute $ traverse f . runIdentity
+             => (a -> f b) -> Compute f a b d s
+mkTraverse f = Compute $ traverse f
 
 
-newtype Vec r d s = Vec { runVec :: VectorFamily s d r }
-
-mkPure   :: (Applicative (VectorFamily s d)) => r -> Vec r d s
-mkPure x = Vec $ pure x
-
-
--- mkEq :: Eq1 (VectorFamily s d) => Compute Identity Identity a a d s
--- mkEq = Compute $ liftEq
-
+--------------------------------------------------------------------------------
 
 newtype Compute2 f a b c d s =
   Compute2 { run2 :: VectorFamily s d a -> VectorFamily s d b -> f (VectorFamily s d c) }
@@ -212,6 +233,20 @@ selectD2     :: (Functor f, VectorSelect (SelectF d)
             -> Vector d a -> Vector d b -> f (Vector d c)
 selectD2 _ c = withV2 (select c c c c c c)
 
+--------------------------------------------------------------------------------
+
+instance Arity d => Applicative (Vector d) where
+  pure         = runPure
+  u <*> v      = runIdentity $ selectD2 (Proxy :: Proxy Applicative) mkApp        u v
+  liftA2 f u v = runIdentity $ selectD2 (Proxy :: Proxy Applicative) (mkLiftA2 f) u v
+
+newtype Vec r d s = Vec { runVec :: VectorFamily s d r }
+
+runPure   :: forall d r. Arity d => r -> Vector d r
+runPure x = MKVector . runVec $ select c c c c c c
+  where
+    c :: forall s. Applicative (VectorFamily s d) => Vec r d s
+    c = Vec $ pure x
 
 mkApp :: Applicative (VectorFamily s d) => Compute2 Identity (a -> b) a b d s
 mkApp = Compute2 $ \fu v -> Identity $ fu <*> v
@@ -220,16 +255,7 @@ mkLiftA2   :: Applicative (VectorFamily s d)
            => (a -> b -> c) -> Compute2 Identity a b c d s
 mkLiftA2 f = Compute2 $ \u v -> Identity $ liftA2 f u v
 
-instance Arity d => Applicative (Vector d) where
-  pure         = runPure
-  u <*> v      = runIdentity $ selectD2 (Proxy :: Proxy Applicative) mkApp        u v
-  liftA2 f u v = runIdentity $ selectD2 (Proxy :: Proxy Applicative) (mkLiftA2 f) u v
-
-runPure   :: forall d r. Arity d => r -> Vector d r
-runPure x = MKVector . runVec $ select c c c c c c
-  where
-    c :: forall s. Applicative (VectorFamily s d) => Vec r d s
-    c = mkPure x
+--------------------------------------------------------------------------------
 
 instance (Arity d, Eq r) => Eq (Vector d r) where
   u == v = and $ liftA2 (==) u v
