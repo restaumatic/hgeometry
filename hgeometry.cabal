@@ -17,7 +17,7 @@ author:              Frank Staals
 maintainer:          frank@fstaals.net
 -- copyright:
 
-tested-with:         GHC >= 7.10.2
+tested-with:         GHC >= 8.0
 
 category:            Geometry
 build-type:          Simple
@@ -76,6 +76,7 @@ library
                     Data.Geometry.Vector
                     Data.Geometry.Vector.VectorFixed
                     Data.Geometry.Vector.VectorFamily
+                    Data.Geometry.Vector.VectorFamily5
                     -- Data.Geometry.Vector.Vinyl
                     Data.Geometry.Interval
                     Data.Geometry.Interval.Util

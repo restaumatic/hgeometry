@@ -5,6 +5,7 @@ import qualified Algorithms.Geometry.ConvexHull.GrahamScan as GrahamScan
 
 import qualified Algorithms.Geometry.Graham as GS
 import qualified Algorithms.Geometry.GrahamFam as GF
+import qualified Algorithms.Geometry.GrahamFam5 as GF5
 import qualified Algorithms.Geometry.GrahamGADT as GG
 
 import           Benchmark.Util
@@ -50,7 +51,8 @@ benchBuild ps = bgroup "build" [ bgroup (show n) (build $ take' n ps)
 
     build pts = [ bench "sort"               $ nf NonEmpty.sort ptsGS
                 , bench "sortFamily"         $ nf NonEmpty.sort ptsGF
-                -- , bench "sortFixed"          $ nf NonEmpty.sort pts
+                , bench "sortFamily5"        $ nf NonEmpty.sort ptsGF5
+                , bench "sortFixed"          $ nf NonEmpty.sort pts
                 -- , bench "grahamScan"         $ nf GrahamScan.convexHull pts
                 -- , bench "grahamScanWithoutP" $ nf GS.convexHull ptsGS
                 -- , bench "grahamScanGADT"     $ nf GG.convexHull ptsGG
@@ -61,3 +63,4 @@ benchBuild ps = bgroup "build" [ bgroup (show n) (build $ take' n ps)
         ptsGS  = fmap (GS.fromP) pts
         ptsGF  = fmap (GF.fromP) pts
         ptsGG  = fmap (GG.fromP) pts
+        ptsGF5 = fmap (GF5.fromP) pts

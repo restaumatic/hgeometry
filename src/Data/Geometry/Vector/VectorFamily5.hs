@@ -178,6 +178,7 @@ newtype Consume a b d s =
 withVC   :: Consume a b d (SelectF d) -> Vector d a -> b
 withVC c = runConsume c . _unV
 
+
 selectC     :: ( VectorSelect (SelectF d)
                , constr (VectorFamily Zero  d)
                , constr (VectorFamily One   d)
@@ -190,6 +191,7 @@ selectC     :: ( VectorSelect (SelectF d)
             -> (forall s. constr (VectorFamily s d) => Consume a b d s)
             -> Vector d a -> b
 selectC _ c = withVC (select c c c c c c)
+
 
 --------------------------------------------------------------------------------
 
@@ -212,15 +214,15 @@ mkTraverse f = Compute $ traverse f
 
 --------------------------------------------------------------------------------
 
-newtype Compute2 f a b c d s =
-  Compute2 { run2 :: VectorFamily s d a -> VectorFamily s d b -> f (VectorFamily s d c) }
+newtype Compute2 a b c d s =
+  Compute2 { run2 :: VectorFamily s d a -> VectorFamily s d b -> VectorFamily s d c }
 
-withV2                             :: Functor f
-                                   => Compute2 f a b c d (SelectF d)
-                                   -> Vector d a -> Vector d b -> f (Vector d c)
-withV2 c (MKVector u) (MKVector v) = MKVector <$> run2 c u v
+withV2                             :: Compute2 a b c d (SelectF d)
+                                   -> Vector d a -> Vector d b -> Vector d c
+withV2 c (MKVector u) (MKVector v) = MKVector $ run2 c u v
 
-selectD2     :: (Functor f, VectorSelect (SelectF d)
+
+selectD2     :: (VectorSelect (SelectF d)
                , constr (VectorFamily Zero  d)
                , constr (VectorFamily One   d)
                , constr (VectorFamily Two   d)
@@ -229,16 +231,16 @@ selectD2     :: (Functor f, VectorSelect (SelectF d)
                , constr (VectorFamily Many  d)
                )
             => proxy constr
-            -> (forall s. constr (VectorFamily s d) => Compute2 f a b c d s)
-            -> Vector d a -> Vector d b -> f (Vector d c)
+            -> (forall s. constr (VectorFamily s d) => Compute2 a b c d s)
+            -> Vector d a -> Vector d b -> Vector d c
 selectD2 _ c = withV2 (select c c c c c c)
 
 --------------------------------------------------------------------------------
 
 instance Arity d => Applicative (Vector d) where
-  pure         = runPure
-  u <*> v      = runIdentity $ selectD2 (Proxy :: Proxy Applicative) mkApp        u v
-  liftA2 f u v = runIdentity $ selectD2 (Proxy :: Proxy Applicative) (mkLiftA2 f) u v
+  pure     = runPure
+  (<*>)    = selectD2 (Proxy :: Proxy Applicative) mkApp
+  liftA2 f = selectD2 (Proxy :: Proxy Applicative) (mkLiftA2 f)
 
 newtype Vec r d s = Vec { runVec :: VectorFamily s d r }
 
@@ -246,14 +248,14 @@ runPure   :: forall d r. Arity d => r -> Vector d r
 runPure x = MKVector . runVec $ select c c c c c c
   where
     c :: forall s. Applicative (VectorFamily s d) => Vec r d s
-    c = Vec $ pure x
+    c = Vec . pure $ x
 
-mkApp :: Applicative (VectorFamily s d) => Compute2 Identity (a -> b) a b d s
-mkApp = Compute2 $ \fu v -> Identity $ fu <*> v
+mkApp :: Applicative (VectorFamily s d) => Compute2 (a -> b) a b d s
+mkApp = Compute2 (<*>)
 
 mkLiftA2   :: Applicative (VectorFamily s d)
-           => (a -> b -> c) -> Compute2 Identity a b c d s
-mkLiftA2 f = Compute2 $ \u v -> Identity $ liftA2 f u v
+           => (a -> b -> c) -> Compute2 a b c d s
+mkLiftA2 f = Compute2 $ liftA2 f
 
 --------------------------------------------------------------------------------
 
