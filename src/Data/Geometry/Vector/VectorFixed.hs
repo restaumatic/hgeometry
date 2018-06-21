@@ -4,7 +4,7 @@ module Data.Geometry.Vector.VectorFixed where
 
 import           Control.DeepSeq
 import           Control.Lens hiding (element)
-import           Data.Aeson
+-- import           Data.Aeson
 import qualified Data.Foldable as F
 import           Data.Proxy
 import qualified Data.Vector.Fixed as V
@@ -101,20 +101,20 @@ instance Arity d => V.Vector (Vector d) r where
   inspect    = V.inspect . _unV
   basicIndex = V.basicIndex . _unV
 
-instance (FromJSON r, Arity d, KnownNat d)  => FromJSON (Vector d r) where
-  parseJSON y = parseJSON y >>= \xs -> case vectorFromList xs of
-                  Nothing -> fail . mconcat $
-                    [ "FromJSON (Vector d a), wrong number of elements. Expected "
-                    , show $ natVal (Proxy :: Proxy d)
-                    , " elements but found "
-                    , show $ length xs
-                    , "."
-                    ]
-                  Just v -> pure v
+-- instance (FromJSON r, Arity d, KnownNat d)  => FromJSON (Vector d r) where
+--   parseJSON y = parseJSON y >>= \xs -> case vectorFromList xs of
+--                   Nothing -> fail . mconcat $
+--                     [ "FromJSON (Vector d a), wrong number of elements. Expected "
+--                     , show $ natVal (Proxy :: Proxy d)
+--                     , " elements but found "
+--                     , show $ length xs
+--                     , "."
+--                     ]
+--                   Just v -> pure v
 
-instance (ToJSON r, Arity d) => ToJSON (Vector d r) where
-  toJSON     = toJSON     . F.toList
-  toEncoding = toEncoding . F.toList
+-- instance (ToJSON r, Arity d) => ToJSON (Vector d r) where
+--   toJSON     = toJSON     . F.toList
+--   toEncoding = toEncoding . F.toList
 
 ------------------------------------------
 

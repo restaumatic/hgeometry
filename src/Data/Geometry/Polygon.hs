@@ -10,8 +10,8 @@ import qualified Data.CircularSeq as C
 import           Data.Ext
 import qualified Data.Foldable as F
 import           Data.Geometry.Boundary
-import           Data.Geometry.Box
-import           Data.Geometry.Line
+-- import           Data.Geometry.Box
+-- import           Data.Geometry.Line
 import           Data.Geometry.LineSegment
 import           Data.Geometry.Point
 import           Data.Geometry.Properties

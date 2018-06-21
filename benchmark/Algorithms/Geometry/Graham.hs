@@ -1,6 +1,6 @@
 {-# Language DeriveGeneric #-}
-module Algorithms.Geometry.Graham( convexHull
-                                 , upperHull
+module Algorithms.Geometry.Graham( --convexHull
+                                  upperHull
                                  , lowerHull, fromP
                                  ) where
 
@@ -9,15 +9,18 @@ import           Control.DeepSeq
 import           Control.Lens ((^.))
 import           Data.Ext
 import           Data.Geometry.Point
-import           Data.Geometry.Polygon
-import           Data.Geometry.Polygon.Convex (ConvexPolygon(..))
+-- import           Data.Geometry.Polygon
+-- import           Data.Geometry.Polygon.Convex (ConvexPolygon(..))
 import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Monoid
 import GHC.Generics
+import qualified Linear.V2 as V2
 
+newtype MyPoint r = MKPoint (V2.V2 r) deriving (Show,Eq,Ord,Generic)
+-- data MyPoint r = MyPoint !r !r deriving (Show,Eq,Ord,Generic)
 
-data MyPoint r = MyPoint !r !r deriving (Show,Eq,Ord,Generic)
+pattern MyPoint x y = MKPoint (V2.V2 x y)
 
 instance NFData r => NFData (MyPoint r)
 
@@ -27,15 +30,15 @@ fromP (Point2 x y :+ e) = MyPoint x y :+ e
 
 (MyPoint x y) `subt` (MyPoint a b) = MyPoint (x-a) (y-b)
 
--- | \(O(n \log n)\) time ConvexHull using Graham-Scan. The resulting polygon is
--- given in clockwise order.
-convexHull            :: (Ord r, Num r)
-                      => NonEmpty (MyPoint r :+ p) -> ConvexPolygon p r
-convexHull (p :| []) = ConvexPolygon . fromPoints $ [toP p]
-convexHull ps        = let ps' = NonEmpty.toList . NonEmpty.sortBy incXdecY $ ps
-                           uh  = NonEmpty.tail . hull' $         ps'
-                           lh  = NonEmpty.tail . hull' $ reverse ps'
-                       in ConvexPolygon . fromPoints . map toP . reverse $ lh ++ uh
+-- -- | \(O(n \log n)\) time ConvexHull using Graham-Scan. The resulting polygon is
+-- -- given in clockwise order.
+-- convexHull            :: (Ord r, Num r)
+--                       => NonEmpty (MyPoint r :+ p) -> ConvexPolygon p r
+-- convexHull (p :| []) = ConvexPolygon . fromPoints $ [toP p]
+-- convexHull ps        = let ps' = NonEmpty.toList . NonEmpty.sortBy incXdecY $ ps
+--                            uh  = NonEmpty.tail . hull' $         ps'
+--                            lh  = NonEmpty.tail . hull' $ reverse ps'
+--                        in ConvexPolygon . fromPoints . map toP . reverse $ lh ++ uh
 
 upperHull  :: (Ord r, Num r) => NonEmpty (MyPoint r :+ p) -> NonEmpty (MyPoint r :+ p)
 upperHull = hull id

@@ -7,7 +7,7 @@ module Data.Geometry.Vector.VectorFamily where
 import           Control.Applicative (liftA2)
 import           Control.DeepSeq
 import           Control.Lens hiding (element)
-import           Data.Aeson (ToJSON(..),FromJSON(..))
+-- import           Data.Aeson (ToJSON(..),FromJSON(..))
 import qualified Data.Foldable as F
 import qualified Data.Geometry.Vector.VectorFixed as FV
 import           Data.Maybe (fromMaybe)
@@ -181,9 +181,9 @@ deriving instance (NFData (VectorFamily (SelectF d) d r)) => NFData (Vector d r)
 --                     ]
 --                   Just v -> pure v
 
-instance (ToJSON r, Arity d) => ToJSON (Vector d r) where
-  toJSON     = toJSON     . F.toList
-  toEncoding = toEncoding . F.toList
+-- instance (ToJSON r, Arity d) => ToJSON (Vector d r) where
+--   toJSON     = toJSON     . F.toList
+--   toEncoding = toEncoding . F.toList
 
 
 instance Arity d => Additive (Vector d) where

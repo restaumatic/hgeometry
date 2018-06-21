@@ -1,12 +1,14 @@
 module Algorithms.Geometry.ConvexHullBench where
 
-import qualified Algorithms.Geometry.ConvexHull.DivideAndConqueror as DivideAndConqueror
-import qualified Algorithms.Geometry.ConvexHull.GrahamScan as GrahamScan
+-- import qualified Algorithms.Geometry.ConvexHull.DivideAndConqueror as DivideAndConqueror
+-- import qualified Algorithms.Geometry.ConvexHull.GrahamScan as GrahamScan
+
+-- import qualified Linear.V2 as L2
 
 import qualified Algorithms.Geometry.Graham as GS
 import qualified Algorithms.Geometry.GrahamFam as GF
 import qualified Algorithms.Geometry.GrahamFam5 as GF5
-import qualified Algorithms.Geometry.GrahamGADT as GG
+-- import qualified Algorithms.Geometry.GrahamGADT as GG
 
 import           Benchmark.Util
 import           Control.DeepSeq
@@ -15,8 +17,8 @@ import           Criterion.Main
 import           Criterion.Types
 import           Data.Ext
 import           Data.Geometry.Point
-import           Data.Geometry.Polygon
-import           Data.Geometry.Polygon.Convex
+-- import           Data.Geometry.Polygon
+-- import           Data.Geometry.Polygon.Convex
 import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Proxy
@@ -62,5 +64,5 @@ benchBuild ps = bgroup "build" [ bgroup (show n) (build $ take' n ps)
       where
         ptsGS  = fmap (GS.fromP) pts
         ptsGF  = fmap (GF.fromP) pts
-        ptsGG  = fmap (GG.fromP) pts
+        -- ptsGG  = fmap (GG.fromP) pts
         ptsGF5 = fmap (GF5.fromP) pts

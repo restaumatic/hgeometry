@@ -7,7 +7,7 @@ module Data.Geometry.Vector.VectorFamily5 where
 import           Control.Applicative (liftA2)
 import           Control.DeepSeq
 import           Control.Lens hiding (element)
-import           Data.Aeson (ToJSON(..),FromJSON(..))
+-- import           Data.Aeson (ToJSON(..),FromJSON(..))
 import qualified Data.Foldable as F
 import           Data.Functor.Contravariant
 import qualified Data.Geometry.Vector.VectorFixed as FV

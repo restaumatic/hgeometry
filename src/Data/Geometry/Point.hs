@@ -4,9 +4,9 @@ module Data.Geometry.Point where
 
 import           Control.DeepSeq
 import           Control.Lens
-import           Data.Aeson
-import qualified Data.CircularList as C
-import qualified Data.CircularList.Util as CU
+-- import           Data.Aeson
+-- import qualified Data.CircularList as C
+-- import qualified Data.CircularList.Util as CU
 import           Data.Ext
 import qualified Data.Foldable as F
 import           Data.Geometry.Properties
@@ -56,12 +56,12 @@ instance Arity d =>  Affine (Point d) where
   p .-. q = toVec p ^-^ toVec q
   p .+^ v = Point $ toVec p ^+^ v
 
-instance (FromJSON r, Arity d, KnownNat d) => FromJSON (Point d r) where
-  parseJSON = fmap Point . parseJSON
+-- instance (FromJSON r, Arity d, KnownNat d) => FromJSON (Point d r) where
+--   parseJSON = fmap Point . parseJSON
 
-instance (ToJSON r, Arity d) => ToJSON (Point d r) where
-  toJSON     = toJSON     . toVec
-  toEncoding = toEncoding . toVec
+-- instance (ToJSON r, Arity d) => ToJSON (Point d r) where
+--   toJSON     = toJSON     . toVec
+--   toEncoding = toEncoding . toVec
 
 -- | Point representing the origin in d dimensions
 --
@@ -346,15 +346,15 @@ cwCmpAround c q r = case (quadrantWith c q `compare` quadrantWith c r) of
 
 
 
--- | Given a center c, a new point p, and a list of points ps, sorted in
--- counter clockwise order around c. Insert p into the cyclic order. The focus
--- of the returned cyclic list is the new point p.
---
--- running time: O(n)
-insertIntoCyclicOrder   :: (Ord r, Num r)
-                        => Point 2 r :+ q -> Point 2 r :+ p
-                        -> C.CList (Point 2 r :+ p) -> C.CList (Point 2 r :+ p)
-insertIntoCyclicOrder c = CU.insertOrdBy (ccwCmpAround c)
+-- -- | Given a center c, a new point p, and a list of points ps, sorted in
+-- -- counter clockwise order around c. Insert p into the cyclic order. The focus
+-- -- of the returned cyclic list is the new point p.
+-- --
+-- -- running time: O(n)
+-- insertIntoCyclicOrder   :: (Ord r, Num r)
+--                         => Point 2 r :+ q -> Point 2 r :+ p
+--                         -> C.CList (Point 2 r :+ p) -> C.CList (Point 2 r :+ p)
+-- insertIntoCyclicOrder c = CU.insertOrdBy (ccwCmpAround c)
 
 
 -- | Squared Euclidean distance between two points

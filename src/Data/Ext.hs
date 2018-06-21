@@ -13,8 +13,8 @@ import Data.Semigroup.Bifoldable
 import Data.Semigroup.Bitraversable
 import GHC.Generics (Generic)
 import Control.DeepSeq
-import Data.Aeson
-import Data.Aeson.Types(typeMismatch)
+-- import Data.Aeson
+-- import Data.Aeson.Types(typeMismatch)
 --------------------------------------------------------------------------------
 
 data core :+ extra = core :+ extra deriving (Show,Read,Eq,Ord,Bounded,Generic,NFData)
@@ -46,16 +46,16 @@ instance (Semigroup core, Semigroup extra) => Semigroup (core :+ extra) where
   (c :+ e) <> (c' :+ e') = c <> c' :+ e <> e'
 
 
-instance (ToJSON core, ToJSON extra) => ToJSON (core :+ extra) where
-  -- toJSON     (c :+ e) = toJSON     (c,e)
-  -- toEncoding (c :+ e) = toEncoding (c,e)
-  toJSON     (c :+ e) = object ["core" .= c, "extra" .= e]
-  toEncoding (c :+ e) = pairs  ("core" .= c <> "extra" .= e)
+-- instance (ToJSON core, ToJSON extra) => ToJSON (core :+ extra) where
+--   -- toJSON     (c :+ e) = toJSON     (c,e)
+--   -- toEncoding (c :+ e) = toEncoding (c,e)
+--   toJSON     (c :+ e) = object ["core" .= c, "extra" .= e]
+--   toEncoding (c :+ e) = pairs  ("core" .= c <> "extra" .= e)
 
-instance (FromJSON core, FromJSON extra) => FromJSON (core :+ extra) where
-  -- parseJSON = fmap (\(c,e) -> c :+ e) . parseJSON
-  parseJSON (Object v) = (:+) <$> v .: "core" <*> v .: "extra"
-  parseJSON invalid    = typeMismatch "Ext (:+)" invalid
+-- instance (FromJSON core, FromJSON extra) => FromJSON (core :+ extra) where
+--   -- parseJSON = fmap (\(c,e) -> c :+ e) . parseJSON
+--   parseJSON (Object v) = (:+) <$> v .: "core" <*> v .: "extra"
+--   parseJSON invalid    = typeMismatch "Ext (:+)" invalid
 
 _core :: (core :+ extra) -> core
 _core (c :+ _) = c
