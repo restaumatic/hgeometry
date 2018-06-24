@@ -51,61 +51,87 @@ unV = lens _unV (const Vector)
 {-# INLINE unV #-}
 
 instance Arity d => Functor (Vector d) where
-  fmap = fmap'
-
-fmap'   :: forall a b d. Arity d => (a -> b) -> Vector d a -> Vector d b
-fmap' f = case natVal (Proxy :: Proxy d) of
-          0 -> unsafeCoerce
-               (fmap f :: VectorFamily 0 a -> VectorFamily 0 b)
-          1 -> unsafeCoerce
-               (fmap f :: VectorFamily 1 a -> VectorFamily 1 b)
-          2 -> unsafeCoerce
-               (fmap f :: VectorFamily 2 a -> VectorFamily 2 b)
-          3 -> unsafeCoerce
-               (fmap f :: VectorFamily 3 a -> VectorFamily 3 b)
-          4 -> unsafeCoerce
-               (fmap f :: VectorFamily 4 a -> VectorFamily 4 b)
-          _ -> unsafeCoerce
-               (fmap f :: FV.Vector    d a -> FV.Vector d b)
+  {-# SPECIALIZE instance Functor (Vector 0) #-}
+  {-# SPECIALIZE instance Functor (Vector 1) #-}
+  {-# SPECIALIZE instance Functor (Vector 2) #-}
+  {-# SPECIALIZE instance Functor (Vector 3) #-}
+  {-# SPECIALIZE instance Functor (Vector 4) #-}
+  fmap f = Vector . g f . _unV
+    where
+      g = case natVal (Proxy :: Proxy d) of
+            0 -> unsafeCoerce
+                 (fmap :: (a -> b) -> VectorFamily 0 a -> VectorFamily 0 b)
+            1 -> unsafeCoerce
+                 (fmap :: (a -> b) -> VectorFamily 1 a -> VectorFamily 1 b)
+            2 -> unsafeCoerce
+                 (fmap :: (a -> b) -> VectorFamily 2 a -> VectorFamily 2 b)
+            3 -> unsafeCoerce
+                 (fmap :: (a -> b) -> VectorFamily 3 a -> VectorFamily 3 b)
+            4 -> unsafeCoerce
+                 (fmap :: (a -> b) -> VectorFamily 4 a -> VectorFamily 4 b)
+            _ -> unsafeCoerce
+                 (fmap :: (a -> b) -> FV.Vector    d a -> FV.Vector d b)
 
 instance Arity d => Foldable (Vector d) where
+  {-# SPECIALIZE instance Foldable (Vector 0) #-}
+  {-# SPECIALIZE instance Foldable (Vector 1) #-}
   {-# SPECIALIZE instance Foldable (Vector 2) #-}
-  foldMap = foldMap'
+  {-# SPECIALIZE instance Foldable (Vector 3) #-}
+  {-# SPECIALIZE instance Foldable (Vector 4) #-}
+  foldMap f = foldMap' f . _unV
   length _ = fromInteger $ natVal (Proxy :: Proxy d)
   null v = length v == 0
 
-foldMap'   :: forall a m d. (Arity d, Monoid m) => (a -> m) -> Vector d a -> m
-foldMap' f = g . _unV
-  where
-    g :: VectorFamily d a -> m
-    g = case natVal (Proxy :: Proxy d) of
-          0 -> unsafeCoerce
-               (foldMap f :: VectorFamily 0 a -> m)
-          1 -> unsafeCoerce
-               (foldMap f :: VectorFamily 1 a -> m)
-          2 -> unsafeCoerce
-               (foldMap f :: VectorFamily 2 a -> m)
-          3 -> unsafeCoerce
-               (foldMap f :: VectorFamily 3 a -> m)
-          4 -> unsafeCoerce
-               (foldMap f :: VectorFamily 4 a -> m)
-          _ -> unsafeCoerce
-               (foldMap f :: FV.Vector    d a -> m)
-
-
+foldMap' :: forall a m d. (Arity d, Monoid m) => (a -> m) -> VectorFamily d a -> m
+foldMap' = case natVal (Proxy :: Proxy d) of
+               0 -> unsafeCoerce
+                    (foldMap :: (a -> m) -> VectorFamily 0 a -> m)
+               1 -> unsafeCoerce
+                    (foldMap :: (a -> m) -> VectorFamily 1 a -> m)
+               2 -> unsafeCoerce
+                    (foldMap :: (a -> m) -> VectorFamily 2 a -> m)
+               3 -> unsafeCoerce
+                    (foldMap :: (a -> m) -> VectorFamily 3 a -> m)
+               4 -> unsafeCoerce
+                    (foldMap :: (a -> m) -> VectorFamily 4 a -> m)
+               _ -> unsafeCoerce
+                    (foldMap :: (a -> m) -> FV.Vector    d a -> m)
 
 instance Arity d => Traversable (Vector d) where
+  {-# SPECIALIZE instance Traversable (Vector 0) #-}
+  {-# SPECIALIZE instance Traversable (Vector 1) #-}
   {-# SPECIALIZE instance Traversable (Vector 2) #-}
+  {-# SPECIALIZE instance Traversable (Vector 3) #-}
+  {-# SPECIALIZE instance Traversable (Vector 4) #-}
   traverse = trav'
 
+trav'   :: forall a b d f. (V.Arity d, Applicative f)
+        => (a -> f b) -> Vector d a -> f (Vector d b)
+trav' f = fmap Vector . select (traverse f) . _unV
+  where
+    select     :: (forall t. Traversable t => t a -> f (t b))
+               -> VectorFamily d a
+               -> f (VectorFamily d b)
+    select g v = case natVal $ (Proxy :: Proxy d) of
+                     0 -> let v' :: VectorFamily 0 a = unsafeCoerce v
+                          in unsafeCoerce $ g v'
+                     1 -> let v' :: VectorFamily 1 a = unsafeCoerce v
+                          in  unsafeCoerce $ g v'
+                     2 -> let v' :: VectorFamily 2 a = unsafeCoerce v
+                          in  unsafeCoerce $ g v'
+                     3 -> let v' :: VectorFamily 3 a = unsafeCoerce v
+                          in  unsafeCoerce $ g v'
+                     4 -> let v' :: VectorFamily 4 a = unsafeCoerce v
+                          in  unsafeCoerce $ g v'
+                     _ -> let v' :: FV.Vector    d a = unsafeCoerce v
+                          in  unsafeCoerce $ g v'
 
-
-instance (Show r, Arity d) => Show (Vector d r) where
-  show v = mconcat [ "Vector", show $ length v , " "
-                   , show $ F.toList v
-                   ]
 instance Arity d => Applicative (Vector d) where
+  {-# SPECIALIZE instance Applicative (Vector 0) #-}
+  {-# SPECIALIZE instance Applicative (Vector 1) #-}
   {-# SPECIALIZE instance Applicative (Vector 2) #-}
+  {-# SPECIALIZE instance Applicative (Vector 3) #-}
+  {-# SPECIALIZE instance Applicative (Vector 4) #-}
   pure = pure'
   liftA2 = liftA2'
 
@@ -141,180 +167,65 @@ liftA2' f va vb = Vector $ g (_unV va) (_unV vb)
 deriving instance (NFData (VectorFamily d r)) => NFData (Vector d r)
 
 instance (Arity d, Eq r) => Eq (Vector d r) where
-  u == v = and $ liftA2 (==) u v
--- instance (Arity d, Ord r) => Ord (Vector d r) where
---   u `compare` v = F.fold $ liftA2 compare u v
-
-instance (Arity d, Ord a) => Ord (Vector d a) where
-  {-# SPECIALIZE instance Ord a => Ord (Vector 2 a) #-}
-  u `compare` v = f u v
-    where
-      f = case natVal (Proxy :: Proxy d) of
+  {-# SPECIALIZE instance Eq r => Eq (Vector 0 r) #-}
+  {-# SPECIALIZE instance Eq r => Eq (Vector 1 r) #-}
+  {-# SPECIALIZE instance Eq r => Eq (Vector 2 r) #-}
+  {-# SPECIALIZE instance Eq r => Eq (Vector 3 r) #-}
+  {-# SPECIALIZE instance Eq r => Eq (Vector 4 r) #-}
+  (==) = case natVal (Proxy :: Proxy d) of
           0 -> unsafeCoerce
-               (compare :: VectorFamily 0 a -> VectorFamily 0 a -> Ordering)
+               ((==) :: VectorFamily 0 r -> VectorFamily 0 r -> Bool)
           1 -> unsafeCoerce
-               (compare :: VectorFamily 1 a -> VectorFamily 1 a -> Ordering)
+               ((==) :: VectorFamily 1 r -> VectorFamily 1 r -> Bool)
           2 -> unsafeCoerce
-               (compare :: VectorFamily 2 a -> VectorFamily 2 a -> Ordering)
+               ((==) :: VectorFamily 2 r -> VectorFamily 2 r -> Bool)
           3 -> unsafeCoerce
-               (compare :: VectorFamily 3 a -> VectorFamily 3 a -> Ordering)
+               ((==) :: VectorFamily 3 r -> VectorFamily 3 r -> Bool)
           4 -> unsafeCoerce
-               (compare :: VectorFamily 4 a -> VectorFamily 4 a -> Ordering)
+               ((==) :: VectorFamily 4 r -> VectorFamily 4 r -> Bool)
           _ -> unsafeCoerce
-               (compare :: FV.Vector    d a -> FV.Vector d a    -> Ordering)
+               ((==) :: FV.Vector    d r -> FV.Vector d r    -> Bool)
 
-testV :: Vector 6 Int
-testV = Vector $ FV.vectorFromListUnsafe [0,1,2,3,4,5]
+instance (Arity d, Ord r) => Ord (Vector d r) where
+  {-# SPECIALIZE instance Ord r => Ord (Vector 0 r) #-}
+  {-# SPECIALIZE instance Ord r => Ord (Vector 1 r) #-}
+  {-# SPECIALIZE instance Ord r => Ord (Vector 2 r) #-}
+  {-# SPECIALIZE instance Ord r => Ord (Vector 3 r) #-}
+  {-# SPECIALIZE instance Ord r => Ord (Vector 4 r) #-}
+  compare = case natVal (Proxy :: Proxy d) of
+          0 -> unsafeCoerce
+               (compare :: VectorFamily 0 r -> VectorFamily 0 r -> Ordering)
+          1 -> unsafeCoerce
+               (compare :: VectorFamily 1 r -> VectorFamily 1 r -> Ordering)
+          2 -> unsafeCoerce
+               (compare :: VectorFamily 2 r -> VectorFamily 2 r -> Ordering)
+          3 -> unsafeCoerce
+               (compare :: VectorFamily 3 r -> VectorFamily 3 r -> Ordering)
+          4 -> unsafeCoerce
+               (compare :: VectorFamily 4 r -> VectorFamily 4 r -> Ordering)
+          _ -> unsafeCoerce
+               (compare :: FV.Vector    d r -> FV.Vector d r    -> Ordering)
 
-    -- (<*>)    = selectD2 (Proxy :: Proxy Applicative) mkApp
-  -- liftA2 f = selectD2 (Proxy :: Proxy Applicative) (mkLiftA2 f)
+-- instance Arity d => V.Vector (Vector d) r where
+--   construct  = case
 
+--     Vector <$> V.construct
+--   inspect    = V.inspect . _unV
+--   basicIndex = V.basicIndex . _unV
 
+--------------------------------------------------------------------------------
 
--- instance V.Arity d => Traversable (Vector d) where
---   traverse f = fmap Vector
---              . trav (traverse f) (traverse f) (traverse f)
---                     (traverse f) (traverse f) (traverse f)
---              . _unV
-
--- trav                     :: forall d f m r b. (KnownNat d, Applicative f)
---                             => (VectorFamily 0 r -> f (VectorFamily 0 b))
---                             -> (VectorFamily 1 r -> f (VectorFamily 1 b))
---                             -> (VectorFamily 2 r -> f (VectorFamily 2 b))
---                             -> (VectorFamily 3 r -> f (VectorFamily 3 b))
---                             -> (VectorFamily 4 r -> f (VectorFamily 4 b))
---                             -> (FV.Vector    m r -> f (FV.Vector    m b))
---                             -> VectorFamily d r -> f (VectorFamily d b)
--- trav f0 f1 f2 f3 f4 fm v = case natVal $ (Proxy :: Proxy d) of
---                      0 -> let v' :: VectorFamily 0 r = unsafeCoerce v
---                           in unsafeCoerce $ f0 v'
---                      1 -> let v' :: VectorFamily 1 r = unsafeCoerce v
---                           in unsafeCoerce $ f1 v'
---                      2 -> let v' :: VectorFamily 2 r = unsafeCoerce v
---                           in unsafeCoerce $ f2 v'
---                      3 -> let v' :: VectorFamily 3 r = unsafeCoerce v
---                           in unsafeCoerce $ f3 v'
---                      4 -> let v' :: VectorFamily 4 r = unsafeCoerce v
---                           in unsafeCoerce $ f4 v'
---                      _ -> let v' :: FV.Vector    m r = unsafeCoerce v
---                           in unsafeCoerce $ fm v'
-
-
-
-
-trav'   :: forall a b d f. (V.Arity d, Applicative f)
-        => (a -> f b) -> Vector d a -> f (Vector d b)
-trav' f = fmap Vector . select (traverse f) . _unV
-  where
-    select     :: (forall t. Traversable t => t a -> f (t b))
-               -> VectorFamily d a
-               -> f (VectorFamily d b)
-    select g v = case natVal $ (Proxy :: Proxy d) of
-                     0 -> let v' :: VectorFamily 0 a = unsafeCoerce v
-                          in unsafeCoerce $ g v'
-                     1 -> let v' :: VectorFamily 1 a = unsafeCoerce v
-                          in  unsafeCoerce $ g v'
-                     2 -> let v' :: VectorFamily 2 a = unsafeCoerce v
-                          in  unsafeCoerce $ g v'
-                     3 -> let v' :: VectorFamily 3 a = unsafeCoerce v
-                          in  unsafeCoerce $ g v'
-                     4 -> let v' :: VectorFamily 4 a = unsafeCoerce v
-                          in  unsafeCoerce $ g v'
-                     _ -> let v' :: FV.Vector    d a = unsafeCoerce v
-                          in  unsafeCoerce $ g v'
-
-
-
--- select'                     :: forall d f m r. KnownNat d
---                             => (VectorFamily 0 r -> f 0)
---                             -> (VectorFamily 1 r -> f 1)
---                             -> (VectorFamily 2 r -> f 2)
---                             -> (VectorFamily 3 r -> f 3)
---                             -> (VectorFamily 4 r -> f 4)
---                             -> (FV.Vector    m r -> f m)
---                             -> VectorFamily d r -> f d
--- select' f0 f1 f2 f3 f4 fm v = case natVal $ (Proxy :: Proxy d) of
---                      0 -> let v' :: VectorFamily 0 r = unsafeCoerce v
---                           in unsafeCoerce $ f0 v'
---                      1 -> let v' :: VectorFamily 1 r = unsafeCoerce v
---                           in unsafeCoerce $ f1 v'
---                      2 -> let v' :: VectorFamily 2 r = unsafeCoerce v
---                           in unsafeCoerce $ f2 v'
---                      3 -> let v' :: VectorFamily 3 r = unsafeCoerce v
---                           in unsafeCoerce $ f3 v'
---                      4 -> let v' :: VectorFamily 4 r = unsafeCoerce v
---                           in unsafeCoerce $ f4 v'
---                      _ -> let v' :: FV.Vector    m r = unsafeCoerce v
---                           in unsafeCoerce $ fm v'
-
-
-
-
--- withV   :: Functor f
---         => (VectorFamily d a -> )
---         f a b d -> Vector d a -> f (Vector d b)
--- withV c = fmap Vector . runVec . c . _unV
-
-
-
--- type Compute f a b d = VectorFamily d a -> Vec f b d
-
--- -- newtype Compute f a b d =
--- --   Compute { run :: VectorFamily d a -> f (VectorFamily d b) }
-
-
-
--- mkFMap   :: Functor (VectorFamily d)
---          => (a -> b) -> Compute Identity a b d
--- mkFMap f = Vec . Identity . fmap f
-
-
--- instance V.Arity d => Functor (Vector d) where
---   fmap f = withV (select' c c c c c)
---     where
---       c = mkFMap f
-
--- select     :: (Functor f
---                , constr (VectorFamily 0)
---                , constr (VectorFamily 1)
---                , constr (VectorFamily 2)
---                , constr (VectorFamily 3)
---                , constr (VectorFamily 4)
---                , constr (FV.Vector    m)
---                )
---               => proxy constr
---              -> (forall d'. constr (VectorFamily d') => Compute f a b d')
---              -> (forall d'. constr (FV.Vector m) => Compute f a b m)
---              -> Vector d a -> f (Vector d b)
--- select _ c m = withV (select' c c c c c m)
-
-
-
--- instance V.Arity d => Functor (Vector d) where
---   fmap = fmap'
-
--- fmap'   :: forall a b d. V.Arity d => (a -> b) -> Vector d a -> Vector d b
--- fmap' f = Vector . select (fmap f) . _unV
---     where
---       select     :: (forall f. Functor f => (f a -> f b)) -> VectorFamily d a -> VectorFamily d b
---       select g v = case natVal $ (Proxy :: Proxy d) of
---                      0 -> let v' :: VectorFamily 0 a = unsafeCoerce v
---                           in unsafeCoerce $ g v'
---                      1 -> let v' :: VectorFamily 1 a = unsafeCoerce v
---                           in  unsafeCoerce $ g v'
---                      2 -> let v' :: VectorFamily 2 a = unsafeCoerce v
---                           in  unsafeCoerce $ g v'
---                      3 -> let v' :: VectorFamily 3 a = unsafeCoerce v
---                           in  unsafeCoerce $ g v'
---                      4 -> let v' :: VectorFamily 4 a = unsafeCoerce v
---                           in  unsafeCoerce $ g v'
---                      _ -> let v' :: FV.Vector    d a = unsafeCoerce v
---                           in  unsafeCoerce $ g v'
-
-
-
+instance (Show r, Arity d) => Show (Vector d r) where
+  show v = mconcat [ "Vector", show $ length v , " "
+                   , show $ F.toList v
+                   ]
 
 instance Arity d => Additive (Vector d) where
+  {-# SPECIALIZE instance Additive (Vector 0 r) #-}
+  {-# SPECIALIZE instance Additive (Vector 1 r) #-}
+  {-# SPECIALIZE instance Additive (Vector 2 r) #-}
+  {-# SPECIALIZE instance Additive (Vector 3 r) #-}
+  {-# SPECIALIZE instance Additive (Vector 4 r) #-}
   zero = pure 0
   u ^+^ v = liftA2 (+) u v
 

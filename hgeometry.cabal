@@ -77,6 +77,8 @@ library
                     Data.Geometry.Vector.VectorFixed
                     Data.Geometry.Vector.VectorFamily
                     Data.Geometry.Vector.VectorFamily5
+                    Data.Geometry.Vector.VectorFamily8
+                    Data.Geometry.Vector.VectorFamily9
                     -- Data.Geometry.Vector.Vinyl
                     -- Data.Geometry.Interval
                     -- Data.Geometry.Interval.Util

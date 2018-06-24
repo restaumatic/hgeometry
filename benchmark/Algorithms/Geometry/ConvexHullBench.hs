@@ -8,6 +8,8 @@ module Algorithms.Geometry.ConvexHullBench where
 import qualified Algorithms.Geometry.Graham as GS
 import qualified Algorithms.Geometry.GrahamFam as GF
 import qualified Algorithms.Geometry.GrahamFam5 as GF5
+import qualified Algorithms.Geometry.GrahamFam8 as GF8
+-- import qualified Algorithms.Geometry.GrahamFam9 as GF9
 -- import qualified Algorithms.Geometry.GrahamGADT as GG
 
 import           Benchmark.Util
@@ -52,13 +54,16 @@ benchBuild ps = bgroup "build" [ bgroup (show n) (build $ take' n ps)
     take' n = NonEmpty.fromList . NonEmpty.take n
 
     build pts = [ bench "sort"               $ nf NonEmpty.sort ptsGS
-                , bench "sortFamily"         $ nf NonEmpty.sort ptsGF
-                , bench "sortFamily5"        $ nf NonEmpty.sort ptsGF5
-                , bench "sortFixed"          $ nf NonEmpty.sort pts
+                -- , bench "sortFamily"         $ nf NonEmpty.sort ptsGF
+                -- , bench "sortFamily5"        $ nf NonEmpty.sort ptsGF5
+                , bench "sortFamily8"        $ nf NonEmpty.sort ptsGF8
+                -- , bench "sortFamily9"        $ nf NonEmpty.sort ptsGF9
+                -- , bench "sortFixed"          $ nf NonEmpty.sort pts
                 -- , bench "grahamScan"         $ nf GrahamScan.convexHull pts
                 -- , bench "grahamScanWithoutP" $ nf GS.convexHull ptsGS
                 -- , bench "grahamScanGADT"     $ nf GG.convexHull ptsGG
-                -- , bench "grahamScanFamily"   $ nf GF.convexHull ptsGF
+                , bench "grahamScanFamily"    $ nf GF.convexHull ptsGF
+                , bench "grahamScanFamily8"   $ nf GF8.convexHull ptsGF8
                 --, bench "Div&Conq"   $ nf DivideAndConqueror.convexHull pts
                 ]
       where
@@ -66,3 +71,5 @@ benchBuild ps = bgroup "build" [ bgroup (show n) (build $ take' n ps)
         ptsGF  = fmap (GF.fromP) pts
         -- ptsGG  = fmap (GG.fromP) pts
         ptsGF5 = fmap (GF5.fromP) pts
+        ptsGF8 = fmap (GF8.fromP) pts
+        -- ptsGF9 = fmap (GF9.fromP) pts

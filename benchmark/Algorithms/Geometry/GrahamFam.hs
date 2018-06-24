@@ -41,17 +41,17 @@ fromP (Point2 x y :+ e) = MyPoint2 x y :+ e
 subt :: Num r => MyPoint 2 r -> MyPoint 2 r -> MyPoint 2 r
 (MyPoint2 x y) `subt` (MyPoint2 a b) = MyPoint2 (x-a) (y-b)
 
-convexHull = undefined
+newtype ConvexPolygon p r = ConvexPolygon [Point 2 r :+ p] deriving (Show,Eq,NFData)
 
--- -- | \(O(n \log n)\) time ConvexHull using Graham-Scan. The resulting polygon is
--- -- given in clockwise order.
--- convexHull            :: (Ord r, Num r)
---                       => NonEmpty (MyPoint 2 r :+ p) -> ConvexPolygon p r
--- convexHull (p :| []) = ConvexPolygon . fromPoints $ [toP p]
--- convexHull ps        = let ps' = NonEmpty.toList . NonEmpty.sortBy incXdecY $ ps
---                            uh  = NonEmpty.tail . hull' $         ps'
---                            lh  = NonEmpty.tail . hull' $ reverse ps'
---                        in ConvexPolygon . fromPoints . map toP . reverse $ lh ++ uh
+-- | \(O(n \log n)\) time ConvexHull using Graham-Scan. The resulting polygon is
+-- given in clockwise order.
+convexHull            :: (Ord r, Num r)
+                      => NonEmpty (MyPoint 2 r :+ p) -> ConvexPolygon p r
+convexHull (p :| []) = ConvexPolygon $ [toP p]
+convexHull ps        = let ps' = NonEmpty.toList . NonEmpty.sortBy incXdecY $ ps
+                           uh  = NonEmpty.tail . hull' $         ps'
+                           lh  = NonEmpty.tail . hull' $ reverse ps'
+                       in ConvexPolygon . map toP . reverse $ lh ++ uh
 
 upperHull  :: (Ord r, Num r) => NonEmpty (MyPoint 2 r :+ p) -> NonEmpty (MyPoint 2 r :+ p)
 upperHull = hull id
