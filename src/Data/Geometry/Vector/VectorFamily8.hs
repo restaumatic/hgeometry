@@ -221,11 +221,11 @@ instance (Show r, Arity d) => Show (Vector d r) where
                    ]
 
 instance Arity d => Additive (Vector d) where
-  {-# SPECIALIZE instance Additive (Vector 0 r) #-}
-  {-# SPECIALIZE instance Additive (Vector 1 r) #-}
-  {-# SPECIALIZE instance Additive (Vector 2 r) #-}
-  {-# SPECIALIZE instance Additive (Vector 3 r) #-}
-  {-# SPECIALIZE instance Additive (Vector 4 r) #-}
+  {-# SPECIALIZE instance Additive (Vector 0) #-}
+  {-# SPECIALIZE instance Additive (Vector 1) #-}
+  {-# SPECIALIZE instance Additive (Vector 2) #-}
+  {-# SPECIALIZE instance Additive (Vector 3) #-}
+  {-# SPECIALIZE instance Additive (Vector 4) #-}
   zero = pure 0
   u ^+^ v = liftA2 (+) u v
 
